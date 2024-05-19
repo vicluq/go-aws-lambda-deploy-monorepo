@@ -1,9 +1,4 @@
 name: Deploy Golang AWS Lambda Monorepo
-description: This action allows users o deploy a monorepo of golang lambda applications on push
-author: Victoria Luquet
-branding:
-  icon: "box"
-  color: "green"
 
 on:
   push:
