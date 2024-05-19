@@ -6,6 +6,7 @@ on:
 env:
   AWS_REGION: us-east-1 # Change to yours
   ENTRY_FILE: main.go # Change to yours
+  REPO_NAME: ${GITHUB_REPOSITORY#*/} # Change to yours
     
 permissions:
   contents: read
@@ -50,7 +51,7 @@ jobs:
       - name: Building Code
         if: steps.deployable.outcome == 'success'
         run: |
-          GOOS=linux GOARCH=amd64 go build -o bootstrap ${{ env.ENTRY_FILE }}
+          GOOS=linux GOARCH=amd64 go build -o bootstrap ${{matrix.service_folders}}/${{ env.ENTRY_FILE }}
           chmod +x bootstrap
           zip deploy.zip bootstrap
       
@@ -58,13 +59,13 @@ jobs:
         id: lambda_status
         if: steps.deployable.outcome == 'success'
         continue-on-error: true
-        run: aws lambda get-function --function-name ${{ env.FUNCTION_NAME }} > /dev/null 2>&1
+        run: aws lambda get-function --function-name "${{env.REPO_NAME}}-${{matrix.service_folders}}" > /dev/null 2>&1
          
       - name: Create Function
         if: steps.lambda_status.outcome != 'success'
         run: |
           aws lambda create-function \
-          --function-name ${{ env.FUNCTION_NAME }} \
+          --function-name "${{env.REPO_NAME}}-${{matrix.service_folders}}" \
           --zip-file fileb://deploy.zip \
           --handler bootstrap \
           --runtime provided.al2023 \
@@ -72,4 +73,4 @@ jobs:
 
       - name: Update Function
         if: steps.lambda_status.outcome == 'success'
-        run: aws lambda update-function-code --function-name ${{ env.FUNCTION_NAME }} --zip-file fileb://deploy.zip > /dev/null 2>&1
+        run: aws lambda update-function-code --function-name "${{env.REPO_NAME}}-${{matrix.service_folders}}" --zip-file fileb://deploy.zip > /dev/null 2>&1
