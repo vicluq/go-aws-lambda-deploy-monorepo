@@ -1,6 +1,6 @@
 # Deploy a Monorepo of Golang Lambdas
 
-Preveiously, I have created an action to deploy a lambda considering that the repository represents a single lambda function.
+Preveiously, I have created a workflow to deploy a lambda considering that the repository represents a single lambda function.
 
 But, in most cases there will be a monorepo with many folders, each representing a lambda, so I have decided to create a lambda that would consider that scenario.
 
