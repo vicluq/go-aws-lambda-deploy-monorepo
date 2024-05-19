@@ -1,10 +1,3 @@
-name: Deploy Golang AWS Lambda
-description: This action allows users o deploy golang lambda applications on push
-author: Victoria Luquet
-branding:
-  icon: "box"
-  color: "green"
-
 on:
   push:
     branches:
@@ -13,7 +6,6 @@ on:
 env:
   AWS_REGION: us-east-1 # Change to yours
   ENTRY_FILE: main.go # Change to yours
-  SERVICE_FOLDERS: ("test" "test2")
     
 permissions:
   contents: read
@@ -24,7 +16,7 @@ jobs:
     environment: production
     strategy:
       matrix:
-        service_folders: ${{ fromJSON(env.SERVICE_FOLDERS) }}
+        service_folders: ["service1", "service2"]
 
     steps:  
       - name: Checkout
@@ -34,25 +26,29 @@ jobs:
 
       - name: Check if lambda files have changed
         id: deployable
-        run: git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep "^(${{matrix.service_folders}}|shared)\/"
+        continue-on-error: true
+        run: git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep "^(${{matrix.service_folders}}|shared)\/"  
       
       - name: Config AWS credentials
         uses: aws-actions/configure-aws-credentials@0e613a0980cbf65ed5b322eb7a1e075d28913a83
-        if: steps.deployable.outcome == 'success' && 1
+        if: steps.deployable.outcome == 'success'
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up Go
+        if: steps.deployable.outcome == 'success'
         uses: actions/setup-go@v5
         with:
           go-version: '1.x'
 
       - name: Install dependencies
+        if: steps.deployable.outcome == 'success'
         run: go get .
     
       - name: Building Code
+        if: steps.deployable.outcome == 'success'
         run: |
           GOOS=linux GOARCH=amd64 go build -o bootstrap ${{ env.ENTRY_FILE }}
           chmod +x bootstrap
@@ -60,14 +56,15 @@ jobs:
       
       - name: Check if lambda exists
         id: lambda_status
+        if: steps.deployable.outcome == 'success'
         continue-on-error: true
-        run: aws lambda get-function --function-name ${{ matrix.service_folders }} > /dev/null 2>&1
+        run: aws lambda get-function --function-name ${{ env.FUNCTION_NAME }} > /dev/null 2>&1
          
       - name: Create Function
         if: steps.lambda_status.outcome != 'success'
         run: |
           aws lambda create-function \
-          --function-name ${{ matrix.service_folders }} \
+          --function-name ${{ env.FUNCTION_NAME }} \
           --zip-file fileb://deploy.zip \
           --handler bootstrap \
           --runtime provided.al2023 \
@@ -75,4 +72,4 @@ jobs:
 
       - name: Update Function
         if: steps.lambda_status.outcome == 'success'
-        run: aws lambda update-function-code --function-name ${{ matrix.service_folders }} --zip-file fileb://deploy.zip > /dev/null 2>&1
+        run: aws lambda update-function-code --function-name ${{ env.FUNCTION_NAME }} --zip-file fileb://deploy.zip > /dev/null 2>&1
